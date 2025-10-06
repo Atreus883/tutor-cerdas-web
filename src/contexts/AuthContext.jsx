@@ -30,62 +30,75 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true); // 'loading' HANYA untuk pemeriksaan sesi awal
+  const [loading, setLoading] = useState(true);
+
+  // ==========================================================
+  // MENGEMBALIKAN LOGIKA TIMEOUT ANDA YANG KRUSIAL
+  // ==========================================================
+  const fetchUserProfile = React.useCallback(async (userId, currentSession) => {
+    // Jika tidak ada user ID atau sesi, proses selesai (pengguna tidak login).
+    if (!userId || !currentSession) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      // Gunakan Promise.race dengan timeout untuk menangani permintaan yang menggantung
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.warn("Profile fetch timeout!");
+        controller.abort();
+      }, 5000); // Timeout 5 detik
+
+      const { data: profile, error } = await supabase
+        .from("user_profiles")
+        .select("role, full_name")
+        .eq("id", userId)
+        .abortSignal(controller.signal)
+        .single();
+
+      clearTimeout(timeoutId); // Batalkan timeout jika berhasil
+
+      if (error) throw error;
+
+      setUser({
+        id: userId,
+        email: currentSession.user.email,
+        role: profile.role || "user",
+        full_name: profile.full_name,
+      });
+    } catch (error) {
+      console.error(
+        "Error fetching user profile:",
+        error.name === "AbortError" ? "Request timed out" : error
+      );
+      // Jika profil gagal diambil (termasuk timeout), tetap set user dengan data minimal
+      setUser({
+        id: userId,
+        email: currentSession.user.email,
+        role: "user",
+        full_name: "",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    // onAuthStateChange adalah satu-satunya sumber kebenaran.
-    // Ia berjalan saat aplikasi pertama kali dimuat (dengan sesi yang tersimpan)
-    // DAN setiap kali ada event login, logout, atau pembaruan token.
+    // Listener onAuthStateChange adalah satu-satunya sumber kebenaran
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      console.log("AUTH EVENT:", event, currentSession);
-      setSession(currentSession);
-
-      // Jika ada sesi, ambil profil pengguna.
-      if (currentSession?.user) {
-        try {
-          const { data: profile, error } = await supabase
-            .from("user_profiles")
-            .select("role, full_name")
-            .eq("id", currentSession.user.id)
-            .single();
-
-          if (error) throw error;
-
-          setUser({
-            id: currentSession.user.id,
-            email: currentSession.user.email,
-            role: profile.role || "user",
-            full_name: profile.full_name,
-          });
-        } catch (error) {
-          console.error("Error fetching user profile:", error);
-          // Jika profil gagal diambil, set user dengan data minimal dari sesi
-          setUser({
-            id: currentSession.user.id,
-            email: currentSession.user.email,
-            role: "user", // Default role
-            full_name: "",
-          });
-        }
-      } else {
-        // Jika tidak ada sesi, reset state user
-        setUser(null);
-      }
-
-      // Selesai memeriksa sesi awal, matikan loading
-      setLoading(false);
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      setSession(session);
+      await fetchUserProfile(session?.user?.id, session);
     });
 
-    // Berhenti mendengarkan saat komponen tidak lagi digunakan
     return () => {
       subscription.unsubscribe();
     };
-  }, []); // <-- Array dependensi kosong memastikan ini hanya berjalan sekali
+  }, [fetchUserProfile]); // Tambahkan fetchUserProfile sebagai dependency
 
-  // Fungsi-fungsi ini sekarang hanya "pemicu".
-  // onAuthStateChange yang akan menangani pembaruan state secara otomatis.
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -110,11 +123,10 @@ export function AuthProvider({ children }) {
     if (error) throw error;
   }
 
-  // Nilai yang akan disediakan oleh Provider ke seluruh aplikasi
   const value = {
     user,
     session,
-    loading, // Tetap sediakan ini untuk ProtectedRoute
+    loading,
     signIn,
     signUp,
     signOut,
