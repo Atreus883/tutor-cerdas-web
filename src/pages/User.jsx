@@ -4,60 +4,381 @@ import { useMemo, useState } from 'react';
 const API_BASE = (import.meta.env.VITE_API_URL || '').replace(/\/+$/, '')
 if (!API_BASE) console.warn('[User] VITE_API_URL belum di-set')
 
-/* ====== Styles (inject, no Tailwind) ====== */
 const styles = `
-.up-scope{ --bg:#0b1020; --panel:#0f152a; --muted:#9aa8c1; --text:#e9eef6;
-  --line:rgba(255,255,255,.12); --soft:rgba(255,255,255,.06); --brand:#6c9ef8; --ok:#34d399;
-}
-@media (prefers-color-scheme: light){
-  .up-scope{ --bg:#f7f9fd; --panel:#ffffff; --text:#0b1020; --muted:#62708a; --line:#e7ebf3; --soft:#f3f6fb; }
-}
-*{box-sizing:border-box}
-.up-wrap{ padding:24px; display:grid; gap:16px; }
-.up-title{ margin:0; font-size:clamp(20px,3vw,28px); font-weight:800; }
-.up-sub{ margin:0; color:var(--muted); font-size:13px; }
-.up-card{ background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px;
-  box-shadow:0 10px 24px rgba(0,0,0,.08);
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.up-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 32px 24px;
+  display: grid;
+  gap: 24px;
 }
 
-.up-row{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-.up-input{
-  flex:1 1 320px; padding:12px 14px; border-radius:12px; border:1px solid var(--line);
-  background:var(--soft); color:inherit; outline:none;
+.up-header {
+  text-align: center;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--line);
 }
-.up-btn{
-  border:1px solid var(--line); background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.02));
-  color:inherit; padding:12px 14px; border-radius:12px; font-weight:700; cursor:pointer;
-  transition:transform .12s ease, box-shadow .12s ease; box-shadow:0 8px 18px rgba(0,0,0,.08);
+
+.up-title {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
 }
-.up-btn:hover{ transform:translateY(-1px); box-shadow:0 12px 24px rgba(0,0,0,.12); }
-.up-btn:disabled{ opacity:.6; cursor:not-allowed; }
-.up-btn-primary{ background:linear-gradient(135deg, #7ba3ff 0%, #5f7aff 100%); color:#fff; border:none; }
 
-.up-ans{ white-space:pre-wrap; line-height:1.6; }
-.up-muted{ color:var(--muted); }
+.up-sub {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 8px;
+}
 
-.up-src-list{ display:grid; gap:10px; }
-.up-src-item{ border:1px solid var(--line); border-radius:12px; padding:12px; background:var(--soft); }
-.up-chip{ font-size:12px; padding:2px 8px; border-radius:999px; background:var(--soft); border:1px solid var(--line); }
-.up-mono{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.up-preview{ margin-top:10px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px; max-height:220px; overflow:auto; white-space:pre-wrap; }
-.up-range{ appearance:none; width:160px; height:6px; border-radius:999px; background:var(--soft); outline:none; }
+.up-card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px var(--shadow);
+  transition: box-shadow 0.3s ease;
+}
+
+.up-card:hover {
+  box-shadow: 0 4px 16px var(--shadow-md);
+}
+
+.up-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.up-card-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.up-input-group {
+  display: grid;
+  gap: 12px;
+}
+
+.up-textarea {
+  width: 100%;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+  color: var(--text);
+  font-size: 15px;
+  outline: none;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 120px;
+  line-height: 1.5;
+}
+
+.up-textarea:focus {
+  border-color: var(--brand);
+  background: var(--panel);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.up-btn {
+  padding: 12px 24px;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  outline: none;
+  white-space: nowrap;
+}
+
+.up-btn-primary {
+  background: var(--brand);
+  color: white;
+  box-shadow: 0 2px 4px var(--shadow);
+}
+
+.up-btn-primary:hover:not(:disabled) {
+  background: var(--brand-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px var(--shadow-md);
+}
+
+.up-btn-secondary {
+  background: var(--soft);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+
+.up-btn-secondary:hover:not(:disabled) {
+  background: var(--line);
+}
+
+.up-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.up-slider-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--soft);
+  border-radius: 8px;
+  border: 1px solid var(--line);
+}
+
+.up-slider-label {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.up-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 180px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  outline: none;
+  cursor: pointer;
+}
+
+.up-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--brand);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.up-range::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+}
+
+.up-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--brand);
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.up-range::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+}
+
+.up-chip {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: white;
+}
+
+.up-chip-secondary {
+  background: var(--soft);
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.up-answer {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.up-empty {
+  text-align: center;
+  padding: 32px;
+  color: var(--muted);
+  font-style: italic;
+}
+
+.up-alert {
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.up-alert-danger {
+  background: rgba(220, 53, 69, 0.1);
+  color: var(--danger);
+  border: 1px solid rgba(220, 53, 69, 0.3);
+}
+
+.up-src-list {
+  display: grid;
+  gap: 16px;
+}
+
+.up-src-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  background: var(--soft);
+  transition: all 0.2s ease;
+}
+
+.up-src-item:hover {
+  border-color: var(--brand);
+  box-shadow: 0 2px 8px var(--shadow);
+}
+
+.up-src-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.up-src-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.up-src-title {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.up-src-meta {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.up-src-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.up-preview {
+  margin-top: 12px;
+  padding: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+}
+
+.up-mono {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  background: var(--soft);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+.up-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--brand);
+  font-size: 14px;
+}
+
+.up-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--brand);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.up-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  background: var(--brand);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+}
+
+@media (max-width: 768px) {
+  .up-wrap {
+    padding: 24px 16px;
+  }
+  
+  .up-card {
+    padding: 16px;
+  }
+  
+  .up-src-header {
+    flex-direction: column;
+  }
+  
+  .up-slider-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .up-range {
+    width: 100%;
+  }
+}
 `
 
 export default function User() {
   const { getAuthHeader } = useAuth();
   const [q, setQ] = useState('');
-  const [k, setK] = useState(6); // top_k untuk retrieval
+  const [k, setK] = useState(6);
   const [answer, setAnswer] = useState('');
-  const [sources, setSources] = useState([]); // [{document_id, chunk_index, similarity, ...}]
+  const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [peek, setPeek] = useState({}); // key `${docId}:${idx}` -> preview text
+  const [peek, setPeek] = useState({});
 
   const api = useMemo(() => API_BASE, []);
 
-  function norm(str=''){ return (str || '').replace(/\s+/g,' ').trim() }
+  function norm(str='') { return (str || '').replace(/\s+/g,' ').trim() }
 
   async function ask() {
     const question = norm(q)
@@ -94,116 +415,150 @@ export default function User() {
     }
   }
 
-  // enter = kirim, shift+enter = newline
-  function onKeyDown(e){
-    if (e.key === 'Enter' && !e.shiftKey){
+  function onKeyDown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       ask()
     }
   }
 
-  async function togglePreview(docId, idx){
+  async function togglePreview(docId, idx) {
     const key = `${docId}:${idx}`
-    if (peek[key]) { // sudah ada → collapse
+    if (peek[key]) {
       const n = { ...peek }; delete n[key]; setPeek(n); return
     }
-    try{
+    try {
       const url = `${api}/documents/${docId}/chunks?limit=1&offset=${idx}`
       const r = await fetch(url)
       const j = await r.json()
       const item = j?.items?.[0]
       setPeek(p => ({ ...p, [key]: item?.content || '(chunk kosong)' }))
-    }catch(e){
+    } catch(e) {
       setPeek(p => ({ ...p, [key]: `(gagal memuat chunk: ${e.message})` }))
     }
   }
 
   return (
-    <div className="up-scope">
+    <>
       <style>{styles}</style>
 
       <div className="up-wrap">
-        <div>
-          <h1 className="up-title">User — Tanya Materi</h1>
+        {/* Header */}
+        <div className="up-header">
+          <h1 className="up-title">💬 Tanya Materi</h1>
           <p className="up-sub">
-            API: <span className="up-mono">{api || '(VITE_API_URL belum di-set)'}</span>
+            Ajukan pertanyaan dan dapatkan jawaban dari knowledge base
+          </p>
+          <p className="up-sub">
+            API Endpoint: <span className="up-mono">{api || '(belum dikonfigurasi)'}</span>
           </p>
         </div>
 
-        {/* Form tanya */}
+        {/* Form Input */}
         <div className="up-card">
-          <div className="up-row" style={{ alignItems:'stretch' }}>
-            <textarea
-              className="up-input"
-              rows={3}
-              value={q}
-              onChange={e=>setQ(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Tanya sesuatu… (Enter untuk kirim, Shift+Enter baris baru)"
-              style={{ resize:'vertical' }}
-            />
-            <button className="up-btn up-btn-primary" onClick={ask} disabled={loading}>
-              {loading ? 'Memproses…' : 'Tanya'}
-            </button>
+          <div className="up-card-header">
+            <h3 className="up-card-title">📝 Pertanyaan Anda</h3>
           </div>
-
-          <div className="up-row" style={{ marginTop:10 }}>
-            <span className="up-muted">Top-K konteks:</span>
-            <input
-              className="up-range"
-              type="range" min={3} max={10} step={1}
-              value={k} onChange={e=>setK(Number(e.target.value))}
-              title={`Ambil ${k} konteks teratas dari retriever`}
+          
+          <div className="up-input-group">
+            <textarea
+              className="up-textarea"
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="Ketik pertanyaan Anda di sini...&#10;&#10;Tips: Tekan Enter untuk mengirim, Shift+Enter untuk baris baru"
             />
-            <span className="up-chip">{k}</span>
+            
+            <div className="up-slider-group">
+              <span className="up-slider-label">Jumlah Konteks (Top-K):</span>
+              <input
+                className="up-range"
+                type="range"
+                min={3}
+                max={10}
+                step={1}
+                value={k}
+                onChange={e => setK(Number(e.target.value))}
+                title={`Ambil ${k} konteks teratas dari retriever`}
+              />
+              <span className="up-chip">{k}</span>
+            </div>
+
+            <button 
+              className="up-btn up-btn-primary" 
+              onClick={ask} 
+              disabled={loading}
+              style={{ width: '100%' }}
+            >
+              {loading ? '⏳ Memproses...' : '🚀 Kirim Pertanyaan'}
+            </button>
           </div>
         </div>
 
         {/* Jawaban */}
         <div className="up-card">
-          <div className="up-row" style={{ justifyContent:'space-between', marginBottom:8 }}>
-            <h3 style={{ margin:0 }}>Jawaban</h3>
-            {loading && <span className="up-muted">mengambil konteks & menyusun jawaban…</span>}
+          <div className="up-card-header">
+            <h3 className="up-card-title">💡 Jawaban</h3>
+            {loading && (
+              <div className="up-loading">
+                <div className="up-spinner"></div>
+                <span>Menyusun jawaban...</span>
+              </div>
+            )}
           </div>
+          
           {error ? (
-            <div style={{ color:'#b91c1c', background:'rgba(239,68,68,.12)', border:'1px solid rgba(239,68,68,.35)', padding:10, borderRadius:12 }}>
-              {error}
+            <div className="up-alert up-alert-danger">
+              ⚠️ <strong>Error:</strong> {error}
             </div>
+          ) : answer ? (
+            <div className="up-answer">{answer}</div>
           ) : (
-            <div className="up-ans">{answer || <span className="up-muted">(belum ada)</span>}</div>
+            <div className="up-empty">
+              Belum ada jawaban. Silakan ajukan pertanyaan terlebih dahulu.
+            </div>
           )}
         </div>
 
         {/* Sumber */}
         <div className="up-card">
-          <div className="up-row" style={{ justifyContent:'space-between', marginBottom:8 }}>
-            <h3 style={{ margin:0 }}>Sumber (konteks)</h3>
-            <span className="up-chip">{sources.length} item</span>
+          <div className="up-card-header">
+            <h3 className="up-card-title">📚 Sumber Referensi</h3>
+            {sources.length > 0 && (
+              <span className="up-badge">{sources.length}</span>
+            )}
           </div>
 
           {sources.length === 0 ? (
-            <div className="up-muted">Belum ada sumber. Tanyakan sesuatu terlebih dahulu.</div>
+            <div className="up-empty">
+              Belum ada sumber referensi. Ajukan pertanyaan untuk melihat sumber yang digunakan.
+            </div>
           ) : (
             <div className="up-src-list">
-              {sources.map((s,i)=>{
+              {sources.map((s, i) => {
                 const key = `${s.document_id}:${s.chunk_index}`
                 return (
                   <div key={key} className="up-src-item">
-                    <div className="up-row" style={{ justifyContent:'space-between', alignItems:'flex-start' }}>
-                      <div style={{ minWidth:0 }}>
-                        <div style={{ fontWeight:700, marginBottom:4 }}>[{i+1}] Doc: <span className="up-mono">{s.document_id}</span></div>
-                        <div className="up-muted" style={{ fontSize:12, display:'flex', gap:12, flexWrap:'wrap' }}>
-                          <span>chunk: <b>#{s.chunk_index}</b></span>
-                          {'similarity' in s && <span>sim: {Number(s.similarity).toFixed(3)}</span>}
-                          <span className="up-chip">id: {key}</span>
+                    <div className="up-src-header">
+                      <div className="up-src-info">
+                        <div className="up-src-title">
+                          📄 [{i + 1}] Dokumen: <span className="up-mono">{s.document_id}</span>
+                        </div>
+                        <div className="up-src-meta">
+                          <span>🔢 Chunk: <strong>#{s.chunk_index}</strong></span>
+                          {'similarity' in s && (
+                            <span>📊 Similarity: <strong>{Number(s.similarity).toFixed(3)}</strong></span>
+                          )}
+                          <span className="up-chip up-chip-secondary">{key}</span>
                         </div>
                       </div>
-
-                      <div className="up-row" style={{ gap:8 }}>
-                        <button className="up-btn" onClick={()=>togglePreview(s.document_id, s.chunk_index)}>
-                          {peek[key] ? 'Tutup' : 'Lihat'} Chunk
-                        </button>
-                      </div>
+                      
+                      <button 
+                        className="up-btn up-btn-secondary"
+                        onClick={() => togglePreview(s.document_id, s.chunk_index)}
+                      >
+                        {peek[key] ? '👁️ Tutup' : '👁️ Lihat'}
+                      </button>
                     </div>
 
                     {peek[key] && (
@@ -218,6 +573,6 @@ export default function User() {
           )}
         </div>
       </div>
-    </div>
+    </>
   )
 }

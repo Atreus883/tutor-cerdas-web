@@ -185,16 +185,30 @@ export default function Admin() {
     try {
       setRebuildId(id);
       setErrorMsg("");
+
+      // Panggil backend API untuk memulai proses rebuild di latar belakang
       const j = await fetchJSON(`/documents/rebuild/${id}`, { method: "POST" });
-      const pages = j.pages ?? "-";
-      const chunksN = j.chunks ?? j.n_chunks ?? "-";
-      alert(`Rebuild OK: pages=${pages}, chunks=${chunksN}`);
-      await refresh();
+
+      // Tampilkan pesan sukses yang sesuai dengan proses asynchronous
+      if (j.ok) {
+        alert(j.message || "Rebuild process has started successfully!");
+
+        // Beri jeda 2 detik, lalu refresh daftar dokumen untuk melihat
+        // perubahan status dari 'uploaded' menjadi 'processing'.
+        setTimeout(() => {
+          refresh();
+        }, 2000);
+      } else {
+        // Jika ada pesan error dari server, tampilkan
+        throw new Error(j.error || "Failed to start rebuild process.");
+      }
     } catch (e) {
-      alert(`Rebuild gagal: ${e.message || e}`);
+      alert(`Rebuild failed: ${e.message || String(e)}`);
       setErrorMsg(String(e.message || e));
     } finally {
-      setRebuildId(null);
+      // Pastikan state loading di-reset setelah beberapa saat,
+      // bukan setelah proses selesai.
+      setTimeout(() => setRebuildId(null), 1000);
     }
   }
 
