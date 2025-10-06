@@ -22,10 +22,11 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
 
   // ==========================================================
-  // PERBAIKAN: Fungsi ini sekarang menerima 'currentSession' sebagai argumen
+  // PERBAIKAN FINAL: Fungsi ini sekarang menerima 'currentSession' sebagai argumen
+  // untuk secara definitif menyelesaikan masalah 'stale state'.
   // ==========================================================
   async function fetchUserProfile(userId, currentSession) {
-    // Jika tidak ada sesi/user ID, hentikan proses
+    // Jika tidak ada user ID atau sesi, proses autentikasi selesai (pengguna tidak login).
     if (!userId || !currentSession) {
       setUser(null);
       setLoading(false);
@@ -41,23 +42,26 @@ export function AuthProvider({ children }) {
 
       if (error) {
         console.error("Error fetching profile:", error);
+        // Jika profil tidak ditemukan, tetap set user dengan data minimal dari sesi.
         setUser({
           id: userId,
           email: currentSession.user.email,
-          role: "user",
+          role: "user", // Default role
           full_name: "",
         });
       } else {
+        // Jika profil ditemukan, set user dengan data lengkap.
         setUser({
           id: userId,
-          // Gunakan 'currentSession' yang dilewatkan, bukan 'session' dari state
+          // Gunakan 'currentSession' yang dilewatkan, bukan 'session' dari state.
           email: currentSession.user.email,
           role: profile.role || "user",
           full_name: profile.full_name,
         });
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error during fetchUserProfile:", error);
+      // Tangani error tak terduga
       setUser({
         id: userId,
         email: currentSession.user.email,
@@ -65,29 +69,31 @@ export function AuthProvider({ children }) {
         full_name: "",
       });
     } finally {
+      // Pastikan loading selalu di-set ke false setelah selesai.
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    // Ambil sesi awal
+    // Ambil sesi awal saat aplikasi pertama kali dimuat.
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       setSession(initialSession);
-      // PERBAIKAN: Lewatkan sesi yang baru didapat
+      // PERBAIKAN: Lewatkan sesi yang baru didapat ke fetchUserProfile.
       fetchUserProfile(initialSession?.user?.id, initialSession);
     });
 
-    // Dengarkan perubahan status autentikasi
+    // Dengarkan perubahan status autentikasi (misal: login, logout).
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
-      // PERBAIKAN: Lewatkan sesi baru dari listener
+      // PERBAIKAN: Lewatkan sesi baru dari listener ke fetchUserProfile.
       await fetchUserProfile(newSession?.user?.id, newSession);
     });
 
+    // Berhenti mendengarkan saat komponen tidak lagi digunakan.
     return () => subscription.unsubscribe();
-  }, []); // <-- Dependency array kosong sudah benar
+  }, []); // <-- Dependency array kosong sudah benar, ini hanya berjalan sekali saat komponen mount.
 
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -131,5 +137,7 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
   };
 
+  // Kembalikan ke children agar tidak menyebabkan layar putih.
+  // Tugas menyembunyikan konten adalah milik ProtectedRoute.
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
