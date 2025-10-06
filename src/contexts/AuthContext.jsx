@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useCallback,
+} from "react";
 import { createClient } from "@supabase/supabase-js";
 
 // Inisialisasi Supabase Client
@@ -30,51 +36,37 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [session, setSession] = useState(null);
-  // 'loading' HANYA untuk pemeriksaan sesi awal saat aplikasi pertama kali dimuat.
   const [loading, setLoading] = useState(true);
 
-  // ==========================================================
-  // LOGIKA TIMEOUT ANDA KITA SIMPAN DI SINI
-  // Fungsi ini stabil karena dibungkus dengan useCallback.
-  // ==========================================================
   const fetchUserProfile = useCallback(async (userId, currentSession) => {
-    // Jika tidak ada user ID atau sesi, kembalikan null.
-    if (!userId || !currentSession) {
-      return null;
-    }
-
+    if (!userId || !currentSession) return null;
     try {
-      // Gunakan Promise.race dengan timeout untuk menangani permintaan yang menggantung.
       const controller = new AbortController();
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => {
           controller.abort();
           reject(new Error("Profile fetch timed out"));
-        }, 5000) // Timeout 5 detik
+        }, 5000)
       );
-
       const profilePromise = supabase
         .from("user_profiles")
         .select("role, full_name")
         .eq("id", userId)
         .abortSignal(controller.signal)
         .single();
-      
-      const { data: profile, error } = await Promise.race([profilePromise, timeoutPromise]);
-
+      const { data: profile, error } = await Promise.race([
+        profilePromise,
+        timeoutPromise,
+      ]);
       if (error) throw error;
-      
-      // Jika berhasil, kembalikan objek user yang lengkap.
       return {
         id: userId,
         email: currentSession.user.email,
         role: profile.role || "user",
         full_name: profile.full_name,
       };
-
     } catch (error) {
       console.error("Error/Timeout fetching user profile:", error);
-      // Jika gagal (termasuk timeout), kembalikan objek user default.
       return {
         id: userId,
         email: currentSession.user.email,
@@ -84,51 +76,81 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-
-  // ==========================================================
-  // INI ADALAH INTI DARI SEMUA LOGIKA SESI
-  // Hanya menggunakan onAuthStateChange sebagai satu-satunya sumber kebenaran.
-  // ==========================================================
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
-        console.log("AUTH EVENT:", event);
-        setSession(currentSession);
-
-        if (currentSession?.user) {
-          const userProfile = await fetchUserProfile(currentSession.user.id, currentSession);
-          setUser(userProfile);
-        } else {
-          setUser(null);
-        }
-        
-        // Selesai memeriksa sesi awal, matikan loading.
-        setLoading(false);
-      }
-    );
-
-    // Berhenti mendengarkan saat komponen tidak lagi digunakan.
-    return () => {
-      subscription.unsubscribe();
-    };
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      setSession(currentSession);
+      const userProfile = await fetchUserProfile(
+        currentSession?.user?.id,
+        currentSession
+      );
+      setUser(userProfile);
+      setLoading(false);
+    });
+    return () => subscription.unsubscribe();
   }, [fetchUserProfile]);
 
+  // ==========================================================
+  // FUNGSI BARU YANG DITAMBAHKAN UNTUK PANGGILAN API YANG AMAN
+  // ==========================================================
+  const fetchWithAuth = useCallback(
+    async (path, opts = {}) => {
+      const apiBase = (import.meta.env.VITE_API_URL || "").replace(/\/+$/, "");
+      const authHeader = session?.access_token
+        ? `Bearer ${session.access_token}`
+        : null;
 
-  // Fungsi-fungsi ini sekarang HANYA pemicu. onAuthStateChange yang akan menangani hasilnya.
+      const headers = { ...opts.headers };
+      if (!opts.body || typeof opts.body === "string") {
+        headers["Content-Type"] = "application/json";
+      }
+      if (authHeader) {
+        headers["Authorization"] = authHeader;
+      }
+
+      const response = await fetch(`${apiBase}${path}`, { ...opts, headers });
+
+      if (response.status === 401) {
+        await signOut();
+        throw new Error("Session expired or invalid. Please log in again.");
+      }
+
+      const text = await response.text();
+      let body;
+      try {
+        body = text ? JSON.parse(text) : {};
+      } catch {
+        body = { raw: text };
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          body?.error || body?.message || `HTTP error ${response.status}`
+        );
+      }
+
+      return body;
+    },
+    [session]
+  ); // Bergantung pada 'session' agar selalu dapat token terbaru
+
   async function signIn(email, password) {
     return supabase.auth.signInWithPassword({ email, password });
   }
 
   async function signUp(email, password, userData = {}) {
-    return supabase.auth.signUp({ email, password, options: { data: userData } });
+    return supabase.auth.signUp({
+      email,
+      password,
+      options: { data: userData },
+    });
   }
 
   async function signOut() {
     return supabase.auth.signOut();
   }
 
-
-  // Nilai yang akan disediakan oleh Provider ke seluruh aplikasi
   const value = {
     user,
     session,
@@ -136,7 +158,7 @@ export function AuthProvider({ children }) {
     signIn,
     signUp,
     signOut,
-    getAuthHeader: () => (session?.access_token ? `Bearer ${session.access_token}` : null),
+    fetchWithAuth, // <-- Ekspor fungsi baru ini
     isAdmin: user?.role === "admin",
     isAuthenticated: !!user,
   };
