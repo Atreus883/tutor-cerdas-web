@@ -1,5 +1,7 @@
-import { Outlet, NavLink } from 'react-router-dom'
-import { useAuth } from './contexts/AuthContext'
+// App.jsx
+import { Outlet, NavLink } from "react-router-dom";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import React, { Suspense } from "react";
 
 const styles = `
 .app-scope{ --bg:#0b1020; --panel:#0f152a; --muted:#9aa8c1; --text:#e9eef6; --line:rgba(255,255,255,.12); }
@@ -33,7 +35,7 @@ const styles = `
 .nav a.active{ background:rgba(124,144,255,.18); border-color:rgba(124,144,255,.35); }
 
 .user-info{ display:flex; align-items:center; gap:10px; }
-.user-badge{ 
+.user-badge{
   padding:4px 8px; border-radius:6px; font-size:12px; font-weight:600;
   background:rgba(52,211,153,.15); color:#10b981; border:1px solid rgba(16,185,129,.25);
 }
@@ -48,60 +50,49 @@ const styles = `
 
 .app-main{ padding:20px 0 28px; }
 .app-footer{ border-top:1px solid var(--line); padding:14px 0 32px; color:var(--muted); font-size:12px; }
-`
+`;
 
-export default function App() {
-  const { user, isAdmin, isAuthenticated, signOut, loading } = useAuth()
+// Buat komponen Layout terpisah agar bisa mengakses context
+function AppLayout() {
+  const { user, isAdmin, isAuthenticated, signOut } = useAuth();
 
   async function handleLogout() {
     try {
-      await signOut()
+      await signOut();
     } catch (error) {
-      console.error('Logout error:', error)
+      console.error("Logout error:", error);
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="app-scope">
-        <style>{styles}</style>
-        <div style={{ padding: 24, textAlign: 'center' }}>Loading...</div>
-      </div>
-    )
   }
 
   return (
     <div className="app-scope">
       <style>{styles}</style>
-
       <div className="app-root">
         <header className="app-header">
           <div className="app-container row">
             <h1 className="brand">Tutor Cerdas (MVP)</h1>
-            
             <nav className="nav" aria-label="Main navigation">
-              <NavLink to="/" end>Home</NavLink>
-              
+              <NavLink to="/" end>
+                Home
+              </NavLink>
               {!isAuthenticated && (
                 <>
                   <NavLink to="/login">Login</NavLink>
                   <NavLink to="/register">Register</NavLink>
                 </>
               )}
-              
               {isAuthenticated && (
                 <>
                   {isAdmin && <NavLink to="/admin">Admin</NavLink>}
                   <NavLink to="/user">User</NavLink>
                 </>
               )}
-              
               {isAuthenticated && (
                 <div className="user-info">
-                  <span className={`user-badge ${isAdmin ? 'admin' : ''}`}>
-                    {isAdmin ? 'Admin' : 'User'}
+                  <span className={`user-badge ${isAdmin ? "admin" : ""}`}>
+                    {isAdmin ? "Admin" : "User"}
                   </span>
-                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  <span style={{ fontSize: 13, color: "var(--muted)" }}>
                     {user?.full_name || user?.email}
                   </span>
                   <button className="logout-btn" onClick={handleLogout}>
@@ -114,7 +105,17 @@ export default function App() {
         </header>
 
         <main className="app-main app-container">
-          <Outlet />
+          {/* Suspense untuk lazy loading diletakkan di sini */}
+          <Suspense
+            fallback={
+              <div style={{ padding: 24, textAlign: "center" }}>
+                Loading page...
+              </div>
+            }
+          >
+            {/* Outlet akan merender halaman yang cocok (Admin, Login, dll.) */}
+            <Outlet />
+          </Suspense>
         </main>
 
         <footer className="app-footer">
@@ -124,5 +125,14 @@ export default function App() {
         </footer>
       </div>
     </div>
-  )
+  );
+}
+
+// Komponen App utama sekarang hanya membungkus layout dengan AuthProvider
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppLayout />
+    </AuthProvider>
+  );
 }
