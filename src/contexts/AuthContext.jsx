@@ -1,4 +1,4 @@
-// AuthContext.jsx (Versi Perbaikan)
+// AuthContext.jsx (Versi Perbaikan Final)
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -23,10 +23,17 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
 
   // ==========================================================
-  // PERUBAHAN UTAMA DI SINI
-  // Fungsi ini sekarang menerima 'currentSession' sebagai argumen
+  // PERUBAHAN UTAMA: Fungsi ini sekarang menerima 'currentSession' sebagai argumen
+  // untuk menghindari 'stale state'.
   // ==========================================================
   async function fetchUserProfile(userId, currentSession) {
+    // Jika tidak ada sesi yang valid, hentikan proses
+    if (!currentSession) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { data: profile, error } = await supabase
         .from("user_profiles")
@@ -36,53 +43,55 @@ export function AuthProvider({ children }) {
 
       if (error) {
         console.error("Error fetching profile:", error);
-        setUser({ id: userId, role: "user" });
+        // Tetap set user dengan data minimal dari sesi
+        setUser({
+          id: userId,
+          email: currentSession.user.email,
+          role: "user",
+        });
       } else {
         setUser({
           id: userId,
           // Gunakan 'currentSession' yang dilewatkan, bukan 'session' dari state
-          email: currentSession?.user?.email,
+          email: currentSession.user.email,
           role: profile.role || "user",
           full_name: profile.full_name,
         });
       }
     } catch (error) {
       console.error("Error fetching user profile:", error);
-      setUser({ id: userId, role: "user" });
+      setUser({
+        id: userId,
+        email: currentSession.user.email,
+        role: "user",
+      });
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    // Get initial session
+    // 1. Ambil sesi awal saat aplikasi dimuat
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
       setSession(initialSession);
-      if (initialSession?.user) {
-        // Lewatkan sesi yang baru didapat
-        fetchUserProfile(initialSession.user.id, initialSession);
-      } else {
-        setLoading(false);
-      }
+      // Panggil fetchUserProfile dengan sesi yang baru didapat
+      fetchUserProfile(initialSession?.user?.id, initialSession);
     });
 
-    // Listen for auth changes
+    // 2. Dengarkan perubahan status autentikasi (login/logout)
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, newSession) => {
       setSession(newSession);
-      if (newSession?.user) {
-        // Lewatkan sesi yang baru dari listener
-        await fetchUserProfile(newSession.user.id, newSession);
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
+      // Panggil fetchUserProfile dengan sesi baru dari listener
+      await fetchUserProfile(newSession?.user?.id, newSession);
     });
 
+    // Berhenti mendengarkan saat komponen dilepas
     return () => subscription.unsubscribe();
-  }, []);
+  }, []); // <-- Dependency array kosong sudah benar
 
+  // ... sisa fungsi (signIn, signUp, signOut) tetap sama ...
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -125,5 +134,9 @@ export function AuthProvider({ children }) {
     isAuthenticated: !!user,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {!loading && children}
+    </AuthContext.Provider>
+  );
 }
