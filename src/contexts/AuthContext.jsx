@@ -1,3 +1,4 @@
+// AuthContext.jsx (Versi Perbaikan)
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 
@@ -21,34 +22,11 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session?.user) {
-        fetchUserProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      if (session?.user) {
-        await fetchUserProfile(session.user.id);
-      } else {
-        setUser(null);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  async function fetchUserProfile(userId) {
+  // ==========================================================
+  // PERUBAHAN UTAMA DI SINI
+  // Fungsi ini sekarang menerima 'currentSession' sebagai argumen
+  // ==========================================================
+  async function fetchUserProfile(userId, currentSession) {
     try {
       const { data: profile, error } = await supabase
         .from("user_profiles")
@@ -62,25 +40,54 @@ export function AuthProvider({ children }) {
       } else {
         setUser({
           id: userId,
-          email: session?.user?.email,
+          // Gunakan 'currentSession' yang dilewatkan, bukan 'session' dari state
+          email: currentSession?.user?.email,
           role: profile.role || "user",
           full_name: profile.full_name,
         });
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Error fetching user profile:", error);
       setUser({ id: userId, role: "user" });
     } finally {
       setLoading(false);
     }
   }
 
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      setSession(initialSession);
+      if (initialSession?.user) {
+        // Lewatkan sesi yang baru didapat
+        fetchUserProfile(initialSession.user.id, initialSession);
+      } else {
+        setLoading(false);
+      }
+    });
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, newSession) => {
+      setSession(newSession);
+      if (newSession?.user) {
+        // Lewatkan sesi yang baru dari listener
+        await fetchUserProfile(newSession.user.id, newSession);
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   async function signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-
     if (error) throw error;
     return data;
   }
@@ -93,7 +100,6 @@ export function AuthProvider({ children }) {
         data: userData,
       },
     });
-
     if (error) throw error;
     return data;
   }
