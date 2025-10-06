@@ -42,7 +42,7 @@ export function AuthProvider({ children }) {
 
       // Use Promise.race with timeout to catch hanging queries
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1000); // 5 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 5 second timeout
 
       const profilePromise = supabase
         .from("user_profiles")
@@ -52,7 +52,7 @@ export function AuthProvider({ children }) {
         .single();
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Profile fetch timeout")), 1000)
+        setTimeout(() => reject(new Error("Profile fetch timeout")), 3000)
       );
 
       const { data: profile, error } = await Promise.race([
