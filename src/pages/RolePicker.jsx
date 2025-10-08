@@ -15,9 +15,9 @@ const styles = `
 /* Light Mode Background */
 :root[data-theme="light"] .rp-wrap {
   background:
-    radial-gradient(1200px 600px at 10% -10%, rgba(102, 126, 234, 0.15) 0%, transparent 70%),
-    radial-gradient(1000px 500px at 110% 10%, rgba(99, 225, 179, 0.15) 0%, transparent 65%),
-    linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
+    radial-gradient(1200px 600px at 10% -10%, rgba(0, 47, 255, 0.15) 0%, transparent 70%),
+    radial-gradient(1000px 500px at 110% 10%, rgba(5, 144, 93, 0.15) 0%, transparent 65%),
+    linear-gradient(180deg, #f8f9fa 0%, #b5c6d7ff 100%);
 }
 
 /* Dark Mode Background */
